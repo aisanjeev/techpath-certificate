@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="techGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2DD4A4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A9B7F;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00BFE7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2DD4A4;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background circle -->
+  <circle cx="100" cy="100" r="95" fill="#ffffff" stroke="#2DD4A4" stroke-width="3"/>
+  
+  <!-- Inner decorative circle -->
+  <circle cx="100" cy="100" r="85" fill="none" stroke="#E8FAF5" stroke-width="8"/>
+  <circle cx="100" cy="100" r="78" fill="none" stroke="#00BFE7" stroke-width="1" opacity="0.5"/>
+  
+  <!-- T letter for TechPath -->
+  <text x="100" y="95" font-family="Arial, sans-serif" font-size="80" font-weight="bold" fill="url(#techGradient)" text-anchor="middle">T</text>
+  
+  <!-- P swoosh accent -->
+  <path d="M 130 60 Q 160 80 145 110 Q 135 130 120 120" fill="none" stroke="#00BFE7" stroke-width="6" stroke-linecap="round"/>
+  
+  <!-- Company name -->
+  <text x="100" y="140" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#2DD4A4" text-anchor="middle" letter-spacing="3">TECHPATH</text>
+  <text x="100" y="160" font-family="Arial, sans-serif" font-size="10" fill="#1A9B7F" text-anchor="middle" letter-spacing="1">R&amp;D PVT.</text>
+  
+  <!-- Decorative dots -->
+  <circle cx="55" cy="100" r="4" fill="#00BFE7" opacity="0.6"/>
+  <circle cx="145" cy="100" r="4" fill="#2DD4A4" opacity="0.6"/>
+</svg>

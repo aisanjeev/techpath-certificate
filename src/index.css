@@ -1,0 +1,65 @@
+/* Import Google Fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400&family=Playfair+Display:wght@400;500;600;700&display=swap');
+
+/* Global styles with TechPath brand colors - NO OKLCH */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  font-family: 'Crimson Text', Georgia, 'Times New Roman', serif;
+  background-color: #0a1628;
+  color: #f0f9f6;
+  min-height: 100vh;
+}
+
+/* Custom scrollbar with TechPath colors */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #122036;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1A9B7F;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2DD4A4;
+}
+
+/* Focus styles with TechPath green */
+*:focus {
+  outline: 2px solid #2DD4A4;
+  outline-offset: 2px;
+}
+
+/* Selection styles */
+::selection {
+  background-color: #2DD4A4;
+  color: #0a1628;
+}
+
+/* Print styles for certificate */
+@media print {
+  body {
+    background-color: #ffffff;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+}
