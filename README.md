@@ -1,95 +1,181 @@
-# Certificate Generator
+# TechPath Certificate Generator
 
-A professional certificate generator web app for **Techpath Research and Development PVT.** Built with React and html2canvas.
+**Version:** 1.0.0  
+**Last Updated:** January 11, 2026
 
-![Certificate Generator Preview](preview.png)
+A professional certificate generation application for Techpath Research and Development PVT. Built with React and Vite, featuring Microsoft SSO authentication and text-based PDF generation.
+
+---
 
 ## Features
 
-- ✅ Enter student name
-- ✅ Add multiple courses with time periods
-- ✅ Preview professional certificate layout
-- ✅ Download certificate as PNG or JPG
-- ✅ Sample data for quick testing
-- ✅ Elegant gold and navy blue design
+### 🔐 Authentication
+- **Microsoft SSO Login** - Secure Single Sign-On with Microsoft Azure AD/Entra ID
+- **User Authorization** - Configurable allowed users list via environment variables
+- **Local Session Management** - Logout without affecting other Microsoft sessions
 
-## Available Courses
+### 📜 Certificate Types
+1. **Course Completion Certificate**
+   - Multiple courses support
+   - Custom date ranges for each course
+   - Sample data presets for quick testing
 
-- ADCA
-- Digital Marketing
-- Data Analysis
+2. **Internship Certificate**
+   - Department/Domain specification
+   - Duration tracking
+   - Optional project description
 
-## Getting Started
+3. **Experience Certificate**
+   - Designation and department
+   - Employment tenure
+   - Key responsibilities section
 
-### Prerequisites
+### 🎨 Design Themes
+- **Classic Gold** - Elegant traditional design with gold accents
+- **Modern Teal** - Fresh contemporary look with TechPath brand colors
 
-- Node.js 20.19+ or 22.12+ (recommended)
-- npm or yarn
+### 📥 Export Options
+- **PNG** - High-quality image export (via html2canvas)
+- **JPG** - Compressed image export
+- **PDF** - Text-based PDF with selectable text and dynamic height (via jsPDF)
 
-### Installation
+### 📄 PDF Features
+- **Selectable Text** - All text is searchable and copyable
+- **Dynamic Height** - Adjusts based on content (courses, responsibilities, etc.)
+- **Dancing Script Font** - Elegant cursive signature matching HTML preview
+- **Professional Footer** - Verification seal, signature box, and contact information
+- **Company Logo** - Embedded logo image
+
+---
+
+## Tech Stack
+
+- **Frontend:** React 19, Vite 7
+- **Authentication:** @azure/msal-browser, @azure/msal-react
+- **PDF Generation:** jsPDF
+- **Image Export:** html2canvas
+- **Styling:** Inline CSS with TechPath brand colors
+
+---
+
+## Installation
 
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd techpath-certificate
+
 # Install dependencies
 npm install
+
+# Create environment file
+cp .env.example .env
+# Edit .env with your Azure credentials
 
 # Start development server
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173/`
+---
 
-### Build for Production
+## Environment Variables
 
-```bash
-npm run build
+Create a `.env` file in the project root:
+
+```env
+# Microsoft Azure AD / Entra ID Configuration
+VITE_AZURE_CLIENT_ID=your-client-id-here
+VITE_AZURE_TENANT_ID=your-tenant-id-here
+VITE_REDIRECT_URI=http://localhost:5173
+
+# Allowed Users (comma-separated emails)
+VITE_ALLOWED_USERS=sanjeev@techpath.biz
 ```
 
-## Adding Your Logo
+---
 
-Replace the `public/logo.png` file with your organization's logo. The recommended dimensions are:
+## Azure Portal Setup
 
-- **Size**: 200x200 pixels
-- **Format**: PNG with transparent background
-- **Note**: If `logo.png` is not found, the app will fallback to `logo.svg`
+1. Go to [Azure Portal](https://portal.azure.com) → **Microsoft Entra ID**
+2. Navigate to **App registrations** → **New registration**
+3. Set **Redirect URI** to your app URL (type: SPA)
+4. Copy **Application (client) ID** → `VITE_AZURE_CLIENT_ID`
+5. Copy **Directory (tenant) ID** → `VITE_AZURE_TENANT_ID`
+6. Under **Authentication**, enable "Access tokens" and "ID tokens"
 
-## Sample Test Data
+---
 
-The app includes two sample students for testing:
+## Project Structure
 
-### Bharti Kumari
-- ADCA: 12/06/2024 – 31/12/2024
-- Digital Marketing: 01/01/2025 – till now
+```
+techpath-certificate/
+├── public/
+│   ├── single-p.png              # TechPath logo
+│   ├── DancingScript-Regular.ttf # Signature font
+│   └── DancingScript-Regular.woff
+├── src/
+│   ├── App.jsx                   # Main app with authentication
+│   ├── authConfig.js             # MSAL configuration
+│   ├── CertificateGenerator.jsx  # Certificate UI and PDF generation
+│   ├── main.jsx                  # Entry point with MsalProvider
+│   └── index.css                 # Global styles
+├── .env                          # Environment variables (not committed)
+├── .env.example                  # Environment template
+├── .gitignore
+├── package.json
+├── vite.config.js
+└── README.md
+```
 
-### Priya Chauhan
-- ADCA: 03/04/2024 – 31/12/2024
-- Digital Marketing: 01/01/2025 – till now
+---
 
-Click the "Load" buttons in the app to quickly populate test data.
+## Scripts
 
-## Technical Details
+```bash
+npm run dev      # Start development server
+npm run build    # Build for production
+npm run preview  # Preview production build
+npm run lint     # Run ESLint
+```
 
-- **Framework**: React (Vite)
-- **Image Export**: html2canvas
-- **Styling**: Inline styles with explicit HEX/RGBA colors
-- **Fonts**: Crimson Text, Playfair Display (Google Fonts)
+---
 
-### TechPath Brand Color Scheme
+## Certificate Preview
 
-| Element | Color | Name |
-|---------|-------|------|
-| Primary Green | `#2DD4A4` | Teal/Turquoise |
-| Primary Blue | `#00BFE7` | Cyan/Aqua |
-| Dark Accent | `#1A9B7F` | Dark Teal |
-| Light Accent | `#E8FAF5` | Light Mint |
-| Background | `#0a1628` | Dark Navy |
-| Card Background | `#122036` | Navy |
-| Certificate BG | `#FFFFFF` | White |
+The certificate includes:
+- Company logo and name
+- Certificate title (based on type)
+- Recipient name with decorative underline
+- Description text
+- Course/employment details
+- Issue date and authorized signature
+- Verification seal
+- Contact information footer
 
-## Important Notes
+---
 
-⚠️ **No OKLCH colors are used** - All colors are explicit HEX or RGBA to ensure compatibility with html2canvas.
+## Security Notes
+
+- `.env` file is gitignored - never commit credentials
+- Only authorized users (configured via `VITE_ALLOWED_USERS`) can access the app
+- Local logout clears session without affecting Microsoft account globally
+
+---
+
+## Contact
+
+**Techpath Research and Development PVT.**
+- 📧 Email: sanjeev@techpath.biz
+- 📞 Phone: +91 8299708052
+- 🌐 Website: www.techpath.biz
+- 📍 Address: Circus Road, Mughalsarai, Chandauli, India - 232101
+
+---
 
 ## License
 
-MIT License
-# techpath-certificate
+This project is proprietary software for Techpath Research and Development PVT.
+
+---
+
+*Built with ❤️ by TechPath*
