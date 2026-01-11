@@ -83,10 +83,520 @@ const CertificateGenerator = () => {
     return 'certificate';
   };
 
+  // Helper function to convert hex color to RGB
+  const hexToRgb = (hex) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 0, g: 0, b: 0 };
+  };
+
+  // Helper function to wrap text
+  const wrapText = (pdf, text, maxWidth) => {
+    const words = text.split(' ');
+    const lines = [];
+    let currentLine = '';
+    
+    words.forEach(word => {
+      const testLine = currentLine ? `${currentLine} ${word}` : word;
+      const testWidth = pdf.getTextWidth(testLine);
+      
+      if (testWidth > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = testLine;
+      }
+    });
+    
+    if (currentLine) {
+      lines.push(currentLine);
+    }
+    
+    return lines;
+  };
+
+  // Load Dancing Script font from local TTF file
+  const loadDancingScriptFont = async (pdf) => {
+    try {
+      const response = await fetch('/DancingScript-Regular.ttf');
+      if (!response.ok) throw new Error('Font not found');
+      
+      const arrayBuffer = await response.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < uint8Array.length; i++) {
+        binary += String.fromCharCode(uint8Array[i]);
+      }
+      const base64 = btoa(binary);
+      
+      pdf.addFileToVFS('DancingScript-Regular.ttf', base64);
+      pdf.addFont('DancingScript-Regular.ttf', 'DancingScript', 'normal');
+      return true;
+    } catch (e) {
+      console.log('Could not load Dancing Script font:', e);
+      return false;
+    }
+  };
+
+  // Generate text-based PDF with dynamic height
+  const generateTextPDF = async () => {
+    const theme = designThemes[designStyle];
+    const fileName = getFileName().replace(/\s+/g, '-');
+    
+    // PDF dimensions (in points, 72 points = 1 inch)
+    const pageWidth = 842; // A4 landscape width
+    const margin = 50;
+    const contentWidth = pageWidth - (margin * 2);
+    
+    // Calculate dynamic height based on content
+    let contentHeight = 0;
+    
+    // Base heights
+    contentHeight += 100; // Logo area
+    contentHeight += 40; // Organization name
+    contentHeight += 60; // Certificate title
+    contentHeight += 30; // "This is to certify that"
+    contentHeight += 50; // Recipient name
+    contentHeight += 80; // Description (estimate, will adjust based on text)
+    contentHeight += 30; // Section title (Courses/Details)
+    
+    // Content-specific heights
+    if (certificateType === 'course') {
+      contentHeight += courses.length * 28; // Each course row
+    } else if (certificateType === 'internship') {
+      contentHeight += 56; // Department + Duration
+      if (internProject) contentHeight += 28; // Project line
+    } else if (certificateType === 'experience') {
+      contentHeight += 84; // Designation + Department + Tenure
+      if (responsibilities) {
+        const respLines = responsibilities.split('\n').length;
+        contentHeight += 28 + (respLines * 16); // Responsibilities
+      }
+    }
+    
+    contentHeight += 140; // Footer (signature, date, seal)
+    contentHeight += 70; // Contact section with spacing
+    
+    const pageHeight = Math.max(contentHeight + (margin * 2), 540);
+    
+    // Create PDF
+    const pdf = new jsPDF({
+      orientation: 'landscape',
+      unit: 'pt',
+      format: [pageWidth, pageHeight]
+    });
+    
+    // Background - light cream/teal based on theme
+    const bgColor = designStyle === 'classic' ? { r: 255, g: 254, b: 245 } : { r: 240, g: 253, b: 250 };
+    pdf.setFillColor(bgColor.r, bgColor.g, bgColor.b);
+    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
+    
+    // Outer border with double line effect
+    const borderColor = hexToRgb(theme.borderColor);
+    pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.setLineWidth(4);
+    pdf.rect(12, 12, pageWidth - 24, pageHeight - 24);
+    pdf.setLineWidth(1);
+    pdf.rect(18, 18, pageWidth - 36, pageHeight - 36);
+    
+    // Inner decorative border
+    const innerBorderColor = hexToRgb(theme.innerBorderColor);
+    pdf.setDrawColor(innerBorderColor.r, innerBorderColor.g, innerBorderColor.b);
+    pdf.setLineWidth(1.5);
+    pdf.rect(30, 30, pageWidth - 60, pageHeight - 60);
+    
+    // Corner decorations
+    const cornerSize = 25;
+    pdf.setFillColor(borderColor.r, borderColor.g, borderColor.b);
+    // Top-left corner
+    pdf.triangle(30, 30, 30 + cornerSize, 30, 30, 30 + cornerSize, 'F');
+    // Top-right corner
+    pdf.triangle(pageWidth - 30, 30, pageWidth - 30 - cornerSize, 30, pageWidth - 30, 30 + cornerSize, 'F');
+    // Bottom-left corner
+    pdf.triangle(30, pageHeight - 30, 30 + cornerSize, pageHeight - 30, 30, pageHeight - 30 - cornerSize, 'F');
+    // Bottom-right corner
+    pdf.triangle(pageWidth - 30, pageHeight - 30, pageWidth - 30 - cornerSize, pageHeight - 30, pageWidth - 30, pageHeight - 30 - cornerSize, 'F');
+    
+    // Certificate ID (if provided)
+    if (certificateId) {
+      pdf.setFont('courier', 'normal');
+      pdf.setFontSize(9);
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(`Certificate ID: ${certificateId}`, pageWidth - margin - 10, 50, { align: 'right' });
+    }
+    
+    let yPos = margin + 20;
+    const centerX = pageWidth / 2;
+    
+    // Load and add logo
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        logoImg.onload = resolve;
+        logoImg.onerror = reject;
+        logoImg.src = '/single-p.png';
+      });
+      
+      // Create canvas to convert image to base64
+      const canvas = document.createElement('canvas');
+      canvas.width = logoImg.width;
+      canvas.height = logoImg.height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(logoImg, 0, 0);
+      const logoData = canvas.toDataURL('image/png');
+      
+      // Add logo to PDF (centered, 70x70)
+      const logoSize = 70;
+      pdf.addImage(logoData, 'PNG', centerX - logoSize / 2, yPos, logoSize, logoSize);
+      yPos += logoSize + 25; // Extra space between logo and text
+    } catch (e) {
+      // If logo fails to load, just add extra spacing
+      console.log('Logo could not be loaded for PDF');
+      yPos += 20;
+    }
+    
+    // Organization name
+    const accentColor = hexToRgb(theme.accentColor);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(16);
+    pdf.setTextColor(accentColor.r, accentColor.g, accentColor.b);
+    pdf.text('TECHPATH RESEARCH AND DEVELOPMENT PVT.', centerX, yPos, { align: 'center' });
+    yPos += 45;
+    
+    // Certificate title
+    const titleColor = hexToRgb(theme.titleColor);
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(32);
+    pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+    
+    let certTitle = 'Certificate of Completion';
+    if (certificateType === 'internship') certTitle = 'Internship Certificate';
+    if (certificateType === 'experience') certTitle = 'Experience Certificate';
+    pdf.text(certTitle.toUpperCase(), centerX, yPos, { align: 'center' });
+    yPos += 45;
+    
+    // "This is to certify that"
+    const textColor = hexToRgb(theme.textColor);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(12);
+    pdf.setTextColor(textColor.r, textColor.g, textColor.b);
+    pdf.text('THIS IS TO CERTIFY THAT', centerX, yPos, { align: 'center' });
+    yPos += 35;
+    
+    // Recipient name
+    pdf.setFont('times', 'bold');
+    pdf.setFontSize(28);
+    pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+    
+    let recipientName = studentName;
+    if (certificateType === 'internship') recipientName = internName;
+    if (certificateType === 'experience') recipientName = employeeName;
+    pdf.text(recipientName, centerX, yPos, { align: 'center' });
+    
+    // Underline for name
+    const nameWidth = pdf.getTextWidth(recipientName);
+    pdf.setDrawColor(accentColor.r, accentColor.g, accentColor.b);
+    pdf.setLineWidth(2);
+    pdf.line(centerX - nameWidth / 2, yPos + 5, centerX + nameWidth / 2, yPos + 5);
+    yPos += 40;
+    
+    // Description
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(11);
+    pdf.setTextColor(74, 85, 104);
+    
+    let description = customDescription || defaultDescription;
+    if (certificateType === 'internship') description = customDescription || defaultInternDescription;
+    if (certificateType === 'experience') description = customDescription || defaultExperienceDescription;
+    
+    const descLines = wrapText(pdf, description, contentWidth - 100);
+    descLines.forEach(line => {
+      pdf.text(line, centerX, yPos, { align: 'center' });
+      yPos += 16;
+    });
+    yPos += 20;
+    
+    // Section title
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(10);
+    pdf.setTextColor(113, 128, 150);
+    
+    let sectionTitle = 'COURSES COMPLETED';
+    if (certificateType === 'internship') sectionTitle = 'INTERNSHIP DETAILS';
+    if (certificateType === 'experience') sectionTitle = 'EMPLOYMENT DETAILS';
+    pdf.text(sectionTitle, centerX, yPos, { align: 'center' });
+    yPos += 25;
+    
+    // Content based on certificate type
+    pdf.setFont('helvetica', 'normal');
+    
+    if (certificateType === 'course') {
+      courses.forEach(course => {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(13);
+        pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+        const courseText = course.name;
+        pdf.text(courseText, centerX, yPos, { align: 'center' });
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(113, 128, 150);
+        const periodText = `(${course.startDate} – ${course.endDate})`;
+        pdf.text(periodText, centerX, yPos + 14, { align: 'center' });
+        yPos += 32;
+      });
+    } else if (certificateType === 'internship') {
+      // Department
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+      pdf.text('Department:', centerX - 80, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(internDepartment, centerX + 20, yPos);
+      yPos += 24;
+      
+      // Duration
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+      pdf.text('Duration:', centerX - 80, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(`${internStartDate} – ${internEndDate}`, centerX + 20, yPos);
+      yPos += 24;
+      
+      // Project (if any)
+      if (internProject) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+        pdf.text('Project:', centerX - 80, yPos);
+        pdf.setFont('helvetica', 'normal');
+        pdf.setTextColor(113, 128, 150);
+        pdf.text(internProject, centerX + 20, yPos);
+        yPos += 24;
+      }
+    } else if (certificateType === 'experience') {
+      // Designation
+      pdf.setFont('helvetica', 'bold');
+      pdf.setFontSize(12);
+      pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+      pdf.text('Designation:', centerX - 80, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(designation, centerX + 20, yPos);
+      yPos += 24;
+      
+      // Department
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+      pdf.text('Department:', centerX - 80, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(empDepartment, centerX + 20, yPos);
+      yPos += 24;
+      
+      // Tenure
+      pdf.setFont('helvetica', 'bold');
+      pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+      pdf.text('Tenure:', centerX - 80, yPos);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(113, 128, 150);
+      pdf.text(`${empStartDate} – ${empEndDate}`, centerX + 20, yPos);
+      yPos += 24;
+      
+      // Responsibilities (if any)
+      if (responsibilities) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+        pdf.text('Responsibilities:', centerX - 80, yPos);
+        yPos += 18;
+        
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+        pdf.setTextColor(113, 128, 150);
+        const respLines = responsibilities.split('\n');
+        respLines.forEach(line => {
+          pdf.text(line, centerX - 60, yPos);
+          yPos += 14;
+        });
+      }
+    }
+    
+    yPos += 40;
+    
+    // Footer section - Professional Design
+    const footerY = yPos;
+    const leftFooterX = margin + 100;
+    const rightFooterX = pageWidth - margin - 100;
+    
+    // Decorative divider line before footer
+    pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.setLineWidth(0.5);
+    const dividerWidth = 200;
+    pdf.line(centerX - dividerWidth, footerY - 20, centerX - 30, footerY - 20);
+    pdf.line(centerX + 30, footerY - 20, centerX + dividerWidth, footerY - 20);
+    
+    // Small decorative diamond in center
+    pdf.setFillColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.triangle(centerX, footerY - 28, centerX - 8, footerY - 20, centerX + 8, footerY - 20, 'F');
+    pdf.triangle(centerX, footerY - 12, centerX - 8, footerY - 20, centerX + 8, footerY - 20, 'F');
+    
+    // Issue Date (left side) - Professional box design
+    const boxWidth = 160;
+    const boxHeight = 65;
+    
+    // Date box with border
+    pdf.setDrawColor(innerBorderColor.r, innerBorderColor.g, innerBorderColor.b);
+    pdf.setLineWidth(1);
+    pdf.roundedRect(leftFooterX - boxWidth/2, footerY, boxWidth, boxHeight, 5, 5, 'S');
+    
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(113, 128, 150);
+    pdf.text('ISSUE DATE', leftFooterX, footerY + 15, { align: 'center' });
+    
+    // Decorative line inside box
+    pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.setLineWidth(0.5);
+    pdf.line(leftFooterX - 40, footerY + 22, leftFooterX + 40, footerY + 22);
+    
+    pdf.setFont('times', 'normal');
+    pdf.setFontSize(12);
+    pdf.setTextColor(textColor.r, textColor.g, textColor.b);
+    pdf.text(getCurrentDate(), leftFooterX, footerY + 42, { align: 'center' });
+    
+    // Signature (right side) - Professional design matching HTML certificate
+    // Signature box
+    pdf.setDrawColor(innerBorderColor.r, innerBorderColor.g, innerBorderColor.b);
+    pdf.setLineWidth(1);
+    pdf.roundedRect(rightFooterX - boxWidth/2, footerY, boxWidth, boxHeight, 5, 5, 'S');
+    
+    // Load Dancing Script font for signature
+    const hasDancingScript = await loadDancingScriptFont(pdf);
+    
+    // Signature name - Dancing Script cursive style matching HTML
+    if (hasDancingScript) {
+      pdf.setFont('DancingScript', 'normal');
+      pdf.setFontSize(26);
+    } else {
+      pdf.setFont('times', 'bolditalic');
+      pdf.setFontSize(24);
+    }
+    pdf.setTextColor(titleColor.r, titleColor.g, titleColor.b);
+    pdf.text('Sanjeev Kumar', rightFooterX, footerY + 30, { align: 'center' });
+    
+    // Title - Dancing Script or italic fallback
+    if (hasDancingScript) {
+      pdf.setFont('DancingScript', 'normal');
+      pdf.setFontSize(12);
+    } else {
+      pdf.setFont('times', 'italic');
+      pdf.setFontSize(11);
+    }
+    pdf.text('Director', rightFooterX, footerY + 48, { align: 'center' });
+    
+    // Label below box
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(8);
+    pdf.setTextColor(113, 128, 150);
+    pdf.text('AUTHORIZED SIGNATURE', rightFooterX, footerY + boxHeight + 12, { align: 'center' });
+    
+    // Center seal/emblem design
+    const sealX = centerX;
+    const sealY = footerY + 30;
+    const sealRadius = 28;
+    
+    // Outer seal circle
+    pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.setLineWidth(2);
+    pdf.circle(sealX, sealY, sealRadius, 'S');
+    pdf.setLineWidth(1);
+    pdf.circle(sealX, sealY, sealRadius - 4, 'S');
+    
+    // Inner seal design
+    pdf.setFillColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.circle(sealX, sealY, 8, 'F');
+    
+    // Star points around inner circle
+    for (let i = 0; i < 8; i++) {
+      const angle = (i * 45) * Math.PI / 180;
+      const innerR = 12;
+      const outerR = 20;
+      const x1 = sealX + Math.cos(angle) * innerR;
+      const y1 = sealY + Math.sin(angle) * innerR;
+      const x2 = sealX + Math.cos(angle) * outerR;
+      const y2 = sealY + Math.sin(angle) * outerR;
+      pdf.setLineWidth(2);
+      pdf.line(x1, y1, x2, y2);
+    }
+    
+    // "VERIFIED" text around seal
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(6);
+    pdf.setTextColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.text('VERIFIED', sealX, sealY + sealRadius + 10, { align: 'center' });
+    
+    // Contact section - Professional footer bar (with more space from signature row)
+    const contactY = footerY + boxHeight + 35;
+    
+    // Decorative top border for contact section
+    pdf.setDrawColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.setLineWidth(1);
+    pdf.line(margin + 40, contactY, pageWidth - margin - 40, contactY);
+    
+    // Small decorative elements on the line
+    const dotSpacing = (pageWidth - margin * 2 - 80) / 4;
+    for (let i = 1; i < 4; i++) {
+      const dotX = margin + 40 + (dotSpacing * i);
+      pdf.setFillColor(borderColor.r, borderColor.g, borderColor.b);
+      pdf.circle(dotX, contactY, 2, 'F');
+    }
+    
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(9);
+    pdf.setTextColor(74, 85, 104);
+    
+    // Contact info with icons represented as text
+    const email = 'sanjeev@techpath.biz';
+    const phone = '+91 8299708052';
+    const website = 'www.techpath.biz';
+    
+    const contactSpacing = 180;
+    pdf.text(email, centerX - contactSpacing, contactY + 18, { align: 'center' });
+    pdf.text(phone, centerX, contactY + 18, { align: 'center' });
+    pdf.text(website, centerX + contactSpacing, contactY + 18, { align: 'center' });
+    
+    // Small separators between contact items
+    pdf.setFillColor(borderColor.r, borderColor.g, borderColor.b);
+    pdf.circle(centerX - contactSpacing/2 - 20, contactY + 15, 1.5, 'F');
+    pdf.circle(centerX + contactSpacing/2 + 20, contactY + 15, 1.5, 'F');
+    
+    // Address
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.setTextColor(113, 128, 150);
+    const addressInfo = 'Circus Road, Mughalsarai, Chandauli, India - 232101';
+    pdf.text(addressInfo, centerX, contactY + 32, { align: 'center' });
+    
+    // Save the PDF
+    pdf.save(`certificate-${fileName}.pdf`);
+  };
+
   const downloadCertificate = async (format) => {
     if (!certificateRef.current) return;
 
     try {
+      // For PDF, use the text-based generation
+      if (format === 'pdf') {
+        await generateTextPDF();
+        return;
+      }
+      
+      // For images (PNG/JPG), continue using html2canvas
       const canvas = await html2canvas(certificateRef.current, {
         scale: 2,
         useCORS: true,
@@ -97,22 +607,11 @@ const CertificateGenerator = () => {
 
       const fileName = getFileName().replace(/\s+/g, '-');
 
-      if (format === 'pdf') {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({
-          orientation: 'landscape',
-          unit: 'px',
-          format: [canvas.width, canvas.height]
-        });
-        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
-        pdf.save(`certificate-${fileName}.pdf`);
-      } else {
-        const link = document.createElement('a');
-        const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
-        link.download = `certificate-${fileName}.${format}`;
-        link.href = canvas.toDataURL(mimeType, format === 'jpg' ? 0.95 : undefined);
-        link.click();
-      }
+      const link = document.createElement('a');
+      const mimeType = format === 'png' ? 'image/png' : 'image/jpeg';
+      link.download = `certificate-${fileName}.${format}`;
+      link.href = canvas.toDataURL(mimeType, format === 'jpg' ? 0.95 : undefined);
+      link.click();
     } catch (error) {
       console.error('Error generating certificate:', error);
       alert('Error generating certificate. Please try again.');
